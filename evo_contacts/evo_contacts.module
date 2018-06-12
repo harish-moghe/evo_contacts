@@ -1,0 +1,304 @@
+<?php
+
+function evo_contacts_menu() {
+    $items = [];
+    
+    $items['contacts/new'] = array(
+        'title' => 'Add New Contact',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array(
+          'evo_render_contacts_form',
+        ),
+        'access callback' => TRUE,
+        'description' => 'A set of ten tutorials',
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    $items['admin/contacts/new'] = array(
+        'title' => 'Add New Contact',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array(
+          'evo_render_contacts_form',
+        ),
+        'access callback' => TRUE,
+        'description' => 'A set of ten tutorials',
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    $items['admin/contacts/all'] = array(
+        'title' => 'Contacts List',
+        'page callback' => 'evo_render_contacts_list',
+        'page arguments' => array(
+        'evo_render_contacts_list',
+        ),
+        'access callback' => TRUE,
+        'description' => 'A set of ten tutorials',
+        'type' => MENU_NORMAL_ITEM,
+    );
+    
+    $items['admin/contacts/%evo_contacts_id/edit'] = array(
+        'title' => 'Contacts List',
+        'page callback' => 'evo_render_contacts_form_edit',
+        'page arguments' => array(
+         2
+        ),
+        'access callback' => TRUE,
+        'type' => MENU_LOCAL_TASK,
+    );
+
+    $items['admin/contacts/%/delete'] = array(
+        'title' => t('Delete Contact'),
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('contacts_delete_confirm', 2),
+        'access callback' => TRUE,
+        'type' => MENU_CALLBACK,
+    );
+    return $items;
+}
+
+function contacts_delete_confirm($form, &$form_state, $contact_id) {
+  $form['_contact'] = array(
+      '#type' => 'value',
+      '#value' => $contact_id,
+    );
+  return confirm_form($form,t('Are you sure you want to delete '.$contact_code.' Contact?'),
+  isset($_GET['destination']) ? $_GET['destination'] : "admin/contacts/all", t('This action cannot be undone.'), t('Delete'), t('Cancel'));
+		
+}
+
+function evo_render_contacts_form($forms, &$form_state, $row = NULL) {
+    $form['#attributes'] = array('id' => 'the_evo_contacts_form');
+    $form['description'] = array(
+        '#type' => 'item',
+        '#title' => t('A form to add contacts'),
+    );
+    $form['fname'] = array(
+        '#title' => 'First Name',
+        '#type' => 'textfield',
+        '#size' => 45,
+        '#description' => "Please enter your first name.",
+        '#default_value' => isset($row->fname) ? $row->fname : '',
+        '#required' => TRUE,
+    );
+    
+    if(isset($row->id)){
+        $form['id'] = array(
+            '#title' => 'Id',
+            '#type' => 'hidden',
+            '#default_value' => $row->id,
+        );
+    }
+    
+    $form['lname'] = array(
+        '#title' => t('Last Name'),
+        '#type' => 'textfield',
+        '#size' => 45,
+        '#default_value' => isset($row->lname) ? $row->lname : '',
+        '#required' => TRUE,
+    );
+    
+    $form['email'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Email'),
+        '#size' => 45,
+        '#required' => TRUE,
+        '#default_value' => isset($row->email) ? $row->email : '',
+        '#maxlength' => 255,
+        '#description' => "Please enter your email.",
+    );
+    
+    $form['phonenumber'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Phone number'),
+        '#required' => TRUE,
+        '#default_value' => "",
+        '#description' => "Please enter your Phone number.",
+        '#default_value' => isset($row->phonenumber) ? $row->phonenumber : '',
+        '#size' => 20,  
+        '#maxlength' => 20,
+    );
+    
+    $status = array(0 => t('Inactive'), 1 => t('Active'));
+    $status_access = FALSE;
+    if(user_access('administer')) {
+      $status_access = TRUE;
+    }
+    $form['status'] = array(
+        '#type' => 'radios',
+        '#title' => t('Status'),
+        '#default_value' => isset($row->status) ? $row->status : 0,
+        '#options' => $status,
+        '#access' => $status_access,
+    );
+    $form['#validate'][] = 'evo_contacts_form_validate';
+    $val = t('Add Contact');
+    if(NULL != $row){
+      $val = t('Update Contact');
+    }
+    $form['submit'] = array('#type' => 'submit', '#value' => $val,  '#submit' =>  array('evo_contacts_form_submit'),);
+    
+    return $form;
+}
+
+function contacts_delete_confirm_submit($form, &$form_state) {
+  $form_values = $form_state['values'];
+  if ($form_state['values']['confirm']) {
+      $contact_id = $form_state['values']['_contact'];var_dump($contact_code);
+      $num_deleted = db_delete('evo_contacts')
+      ->condition('id', $contact_id)
+      ->execute();
+      drupal_set_message(t('Contact has been deleted successfully.'));
+  }
+  drupal_goto("admin/contacts/all");
+}
+
+/**
+* Implementation of hook_install().
+*/
+function evo_contacts_install() {
+    // Use schema API to create database table.
+    drupal_install_schema('evo_contacts');
+}
+
+
+
+/**
+* Implementation of hook_uninstall().
+*/
+function evo_contacts_uninstall() {
+    // Remove tables.
+    drupal_uninstall_schema('evo_contacts');
+}
+
+function evo_contacts_schema(){
+    $schema['evo_contacts'] = array(
+    'description' => t('Stores site types of the social_site module.'),
+    'fields' => array(
+        'id' => array(
+            'description' => 'The primary identifier for a contact.',
+            'type' => 'serial',
+            'unsigned' => TRUE,
+            'not null' => TRUE
+            ),
+        'fname' => array(
+            'description' => 'First name.',
+            'type' => 'varchar',
+            'length' => 32,
+            'not null' => TRUE
+            ),
+        'lname' => array(
+            'description' => 'Last name.',
+            'type' => 'varchar',
+            'length' => 255,
+            'not null' => TRUE,
+            ),
+        'email' => array(
+            'description' => 'email address.',
+            'type' => 'varchar',
+            'length' => 255,
+            'not null' => TRUE,
+            'maxlength' => 255,
+            ),
+        'phonenumber' => array(
+            'description' => 'phonenumber.',
+            'type' => 'varchar',
+            'length' => 255,
+            'not null' => TRUE,
+        ),
+        'status' => array(
+            'description' => 'Status.',
+            'type' => 'int',
+            'default' => 0
+        ),
+        'created_date' => array(
+            'description' => 'Created Date and Time in UTC.',
+            'mysql_type' => 'datetime',
+            'not null' => FALSE,
+            'default' => format_date(time(), 'custom', 'Y-m-d 00:00:00'),
+        ),
+        'updated_date' => array(
+            'description' => 'Updated Date and Time in UTC.',
+            'mysql_type' => 'datetime',
+            'default' => format_date(time(), 'custom', 'Y-m-d 00:00:00'),
+            'not null' => FALSE,
+        ),
+        'created_by' => array(
+            'description' => 'User id of creator',
+            'type' => 'int',
+            'default' => 0
+        ),
+    ),
+    'primary key' => array('id'),
+    );
+    return $schema;
+}
+
+function evo_contacts_form_validate($form, &$form_state){
+    if (!valid_email_address($form_state['values']['email'])) {
+        form_set_error('email', t('That email address is not valid.'));
+    }
+}
+
+function evo_contacts_form_submit($form, &$form_state){
+    global $user; 
+      if(isset($form_state['values']["id"]) && $form_state['values']["id"] > 0){
+            $num_updated = db_update('evo_contacts')->fields(
+                array(
+                  'fname' => $form_state['values']['fname'],
+                  'lname' => $form_state['values']['lname'],
+                  'email' => $form_state['values']['email'],
+                  'phonenumber' => $form_state['values']['phonenumber'],  
+                  'status' => $form_state['values']['status'],
+                  'updated_date' =>   date("Y-m-d H:i:s")
+                )
+            )->condition('id', intval($form_state['values']["id"]), " = ")->execute();
+           drupal_set_message(t("Contact updated successfully."));
+            
+        }else{
+            global $user;
+            db_insert('evo_contacts')
+            ->fields(array(
+              'fname' => $form_state['values']['fname'],
+              'lname' => $form_state['values']['lname'],
+              'email' => $form_state['values']['email'],
+              'phonenumber' => $form_state['values']['phonenumber'],  
+              'status' => $form_state['values']['status'],
+              'created_by' => $user->uid,
+            ))->execute();
+            drupal_set_message(t("Contact saved successfully."));
+        }
+    }
+
+
+function evo_render_contacts_list(){
+  global $base_url;
+  $header = array('Id', 'First Name', 'Last Name', 'Email Address', 'Enabled', 'Created At', 'Updated At', 'Author', 'Operations');
+  $data = array();
+  $query = db_query("SELECT id, fname, lname, email, status, created_date, updated_date, created_by FROM {evo_contacts}");
+  $data = db_query($query)->fetchAll();
+  $results = array();
+  if(count($data)){
+    foreach($data as $k => $r){
+        $r = (array) $r;
+        $r["status"] = ($r["status"])? "" : "X";
+        $user=user_load($r['created_by']);
+        $r['created_by'] = ($r['created_by'])? '<a href="'.$base_url."/".drupal_get_path_alias('user/' . $r['created_by']).'">'.$user->name.'</a>' : "";
+        $r[] = "<a href='".$base_url."/admin/contacts/".$r['id']."/edit/'>Edit</a> <a href='".$base_url."/admin/contacts/".$r['id']."/delete/'>Delete</a>";
+        $results[] = $r;
+    }
+  }
+  $output = theme("table", array('header' => $header, 'rows' => $results));
+  $output = "<a href=\"new/\">Add New</a>".$output;
+  return $output;
+}
+
+function evo_render_contacts_form_edit($object){
+  return drupal_get_form('evo_render_contacts_form', $object);
+}
+
+function evo_contacts_id_load($id){
+  $ret =  db_query("SELECT * FROM {evo_contacts} WHERE id = :id", array(
+    ':id' => $id,
+  ))->fetchObject();
+  return $ret;
+}

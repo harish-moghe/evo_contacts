@@ -1,3 +1,3 @@
-name = Contact lists
+name = Evo contacts lists
 description = This module displays contacts list and allows to Creat/Read/Update and Delete operations.
 core = 7.x
